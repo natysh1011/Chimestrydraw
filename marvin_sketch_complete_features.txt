@@ -62,19 +62,10 @@ Implemented in ChemCanvas on 2026-05-25 (Page Setup preserves and applies per-si
 
 ---
 
-2. Open Existing File
+7. Open Existing File
 
-What it does:
-Loads a previously saved molecule file from disk into the application.
-
-Detailed behavior:
-The system presents a file browser filtered by supported formats. Upon selection, the file parser reads the format, constructs the molecular graph, assigns coordinates, and renders the structure. Metadata (properties, data fields) is preserved.
-
-Expected behavior:
-The file should open with all atoms, bonds, stereochemistry, charges, and attached data intact. The window title should update to the filename. Recent files list should update.
-
-Official basis:
-Marvin supports opening all major chemical file formats as documented in the File I/O reference.
+Status:
+Implemented in ChemCanvas on 2026-05-25 (File → Open loads supported formats with preserved structure data, updates the current document filename/title, and updates File → Recent Files list with quick reopen entries).
 
 ---
 

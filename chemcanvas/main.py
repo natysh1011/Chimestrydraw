@@ -44,6 +44,7 @@ from common import str_to_tuple
 
 
 DEBUG = False
+MAX_RECENT_FILES = 12
 def debug(*args):
     if DEBUG: print(*args)
 
@@ -147,6 +148,9 @@ class Window(QMainWindow, Ui_MainWindow):
         self.actionInsertFile.triggered.connect(self.insertFile)
         # Place right after Open in File menu
         self.menuFile.insertAction(self.actionSave, self.actionInsertFile)
+        self.recentFilesMenu = QMenu("Recent Files", self.menuFile)
+        self.menuFile.insertMenu(self.actionInsertFile, self.recentFilesMenu)
+        self.refreshRecentFilesMenu()
 
         # Multipage controls
         self.actionPageSetup = QAction("Page Setup…", self)
@@ -825,6 +829,49 @@ class Window(QMainWindow, Ui_MainWindow):
                 filename = "*" + filename
             self.setWindowTitle(filename)
 
+    def getRecentFiles(self):
+        files = self.settings.value("RecentFiles", [])
+        if isinstance(files, str):
+            files = [files] if files else []
+        return [os.path.abspath(path) for path in files if path]
+
+    def setRecentFiles(self, paths):
+        self.settings.setValue("RecentFiles", paths[:MAX_RECENT_FILES])
+
+    def addRecentFile(self, filename):
+        filename = os.path.abspath(filename)
+        recents = [path for path in self.getRecentFiles() if path != filename]
+        recents.insert(0, filename)
+        self.setRecentFiles(recents)
+        self.refreshRecentFilesMenu()
+
+    def openRecentFile(self, filename):
+        filename = os.path.abspath(filename)
+        if not os.path.exists(filename):
+            self.setRecentFiles([path for path in self.getRecentFiles() if path != filename])
+            self.refreshRecentFilesMenu()
+            QMessageBox.warning(self, "Missing File", f"File not found:\n{filename}")
+            return
+        self.openFile(filename)
+
+    def refreshRecentFilesMenu(self):
+        self.recentFilesMenu.clear()
+        recents = self.getRecentFiles()
+        if not recents:
+            action = self.recentFilesMenu.addAction("(No recent files)")
+            action.setEnabled(False)
+            return
+        for filename in recents:
+            action = self.recentFilesMenu.addAction(os.path.basename(filename) or filename)
+            action.setToolTip(filename)
+            action.setStatusTip(filename)
+            action.triggered.connect(lambda checked=False, path=filename: self.openRecentFile(path))
+            if not os.path.exists(filename):
+                action.setEnabled(False)
+        self.recentFilesMenu.addSeparator()
+        clear_action = self.recentFilesMenu.addAction("Clear Recent Files")
+        clear_action.triggered.connect(lambda: (self.setRecentFiles([]), self.refreshRecentFilesMenu()))
+
 
     def openFile(self, filename=None):
         """ if filename not passed, filename is obtained via FileDialog """
@@ -856,12 +903,12 @@ class Window(QMainWindow, Ui_MainWindow):
             self.showException(e)
             return
         # On Success
-        is_new = App.paper.setDocument(doc)
+        App.paper.setDocument(doc)
         App.paper.save_state_to_undo_stack("Open File")
-        if is_new:
-            self.filename = filename
-            self.selected_filter = ""# reset
-            App.paper.undo_manager.mark_saved_to_disk()
+        self.filename = filename
+        self.selected_filter = ""# reset
+        App.paper.undo_manager.mark_saved_to_disk()
+        self.addRecentFile(filename)
         self.enableSaveButton(False)
         return True
 
