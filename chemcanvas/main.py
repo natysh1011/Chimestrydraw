@@ -5,6 +5,7 @@
 
 import sys, os
 import io
+import json
 import platform
 import re
 import subprocess
@@ -13,13 +14,14 @@ from datetime import datetime
 import traceback
 
 from PyQt5.QtCore import (qVersion, Qt, QSettings, QEventLoop, QTimer, QThread,
-    QSize, QSizeF, QRectF, QDir, QStandardPaths)
+    QSize, QSizeF, QRectF, QDir, QStandardPaths, QFileInfo)
 from PyQt5.QtGui import QIcon, QPainter, QPixmap, QPalette, QPdfWriter
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QStyleFactory, QGridLayout, QGraphicsView, QSpacerItem, QVBoxLayout,
     QFileDialog, QAction, QActionGroup, QToolButton, QInputDialog, QPushButton, QWidget,
-    QSpinBox, QFontComboBox, QSizePolicy, QLabel, QMessageBox, QSlider, QDialog, QDoubleSpinBox, QMenu
+    QSpinBox, QFontComboBox, QSizePolicy, QLabel, QMessageBox, QSlider, QDialog, QDoubleSpinBox, QMenu,
+    QListWidget, QListWidgetItem, QDialogButtonBox, QFileIconProvider
 )
 
 sys.path.append(os.path.dirname(__file__)) # for enabling python 2 like import
@@ -46,6 +48,7 @@ from common import str_to_tuple
 
 DEBUG = False
 MAX_RECENT_FILES = 12
+MAX_STARTUP_RECENT_FILES = 8
 def debug(*args):
     if DEBUG: print(*args)
 
@@ -353,6 +356,8 @@ class Window(QMainWindow, Ui_MainWindow):
         self.filename = ''
         self.selected_filter = ''
         self.actionSave.setEnabled(False)
+        self.fileIconProvider = QFileIconProvider()
+        QTimer.singleShot(0, self.showRecentFilesStartupDialog)
 
         # show window
         self.resize(width, height)
@@ -905,30 +910,68 @@ class Window(QMainWindow, Ui_MainWindow):
                 filename = "*" + filename
             self.setWindowTitle(filename)
 
+    def _loadRecentFileEntries(self):
+        raw_data = self.settings.value("RecentFilesData", "")
+        entries = []
+        if raw_data:
+            try:
+                parsed = json.loads(raw_data)
+                if isinstance(parsed, list):
+                    entries = parsed
+            except Exception:
+                entries = []
+        if not entries:
+            legacy = self.settings.value("RecentFiles", [])
+            if isinstance(legacy, str):
+                legacy = [legacy] if legacy else []
+            entries = [{"path": path, "opened_at": ""} for path in legacy]
+        normalized = []
+        seen = set()
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            path = os.path.abspath(entry.get("path", ""))
+            if not path or path in seen:
+                continue
+            seen.add(path)
+            normalized.append({
+                "path": path,
+                "opened_at": str(entry.get("opened_at", "")),
+            })
+        return normalized[:MAX_RECENT_FILES]
+
+    def _saveRecentFileEntries(self, entries):
+        entries = entries[:MAX_RECENT_FILES]
+        self.settings.setValue("RecentFilesData", json.dumps(entries))
+        self.settings.setValue("RecentFiles", [entry["path"] for entry in entries])
+
     def getRecentFiles(self):
-        files = self.settings.value("RecentFiles", [])
-        if isinstance(files, str):
-            files = [files] if files else []
-        return [os.path.abspath(path) for path in files if path]
+        return [entry["path"] for entry in self._loadRecentFileEntries()]
 
     def setRecentFiles(self, paths):
-        self.settings.setValue("RecentFiles", paths[:MAX_RECENT_FILES])
+        entries = [{"path": os.path.abspath(path), "opened_at": ""}
+                   for path in paths if path]
+        self._saveRecentFileEntries(entries)
 
     def clearRecentFiles(self):
-        self.setRecentFiles([])
+        self._saveRecentFileEntries([])
         self.refreshRecentFilesMenu()
 
     def addRecentFile(self, filename):
         filename = os.path.abspath(filename)
-        recents = [path for path in self.getRecentFiles() if path != filename]
-        recents.insert(0, filename)
-        self.setRecentFiles(recents)
+        opened_at = datetime.now().strftime("%Y-%m-%d %H:%M")
+        recents = [entry for entry in self._loadRecentFileEntries()
+                   if entry["path"] != filename]
+        recents.insert(0, {"path": filename, "opened_at": opened_at})
+        self._saveRecentFileEntries(recents)
         self.refreshRecentFilesMenu()
 
     def openRecentFile(self, filename):
         filename = os.path.abspath(filename)
         if not os.path.exists(filename):
-            self.setRecentFiles([path for path in self.getRecentFiles() if path != filename])
+            recents = [entry for entry in self._loadRecentFileEntries()
+                       if entry["path"] != filename]
+            self._saveRecentFileEntries(recents)
             self.refreshRecentFilesMenu()
             QMessageBox.warning(self, "Missing File", f"File not found:\n{filename}")
             return
@@ -936,21 +979,80 @@ class Window(QMainWindow, Ui_MainWindow):
 
     def refreshRecentFilesMenu(self):
         self.recentFilesMenu.clear()
-        recents = self.getRecentFiles()
+        recents = self._loadRecentFileEntries()
         if not recents:
             action = self.recentFilesMenu.addAction("(No recent files)")
             action.setEnabled(False)
             return
-        for filename in recents:
+        for entry in recents:
+            filename = entry["path"]
+            title = os.path.basename(filename)
+            opened_at = entry.get("opened_at", "")
+            if opened_at:
+                title = f"{title}    {opened_at}"
             action = self.recentFilesMenu.addAction(os.path.basename(filename))
+            action.setText(title)
             action.setToolTip(filename)
             action.setStatusTip(filename)
+            action.setIcon(self.fileIconProvider.icon(QFileInfo(filename)))
             action.triggered.connect(partial(self.openRecentFile, filename))
             if not os.path.exists(filename):
                 action.setEnabled(False)
         self.recentFilesMenu.addSeparator()
         clear_action = self.recentFilesMenu.addAction("Clear Recent Files")
         clear_action.triggered.connect(self.clearRecentFiles)
+
+    def showRecentFilesStartupDialog(self):
+        if self.filename:
+            return
+        recents = self._loadRecentFileEntries()
+        if not recents:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Open Recent File")
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel("Recent files:", dialog))
+
+        file_list = QListWidget(dialog)
+        for entry in recents[:MAX_STARTUP_RECENT_FILES]:
+            filename = entry["path"]
+            title = os.path.basename(filename)
+            opened_at = entry.get("opened_at", "")
+            if opened_at:
+                title = f"{title}    {opened_at}"
+            item = QListWidgetItem(self.fileIconProvider.icon(QFileInfo(filename)), title)
+            item.setData(Qt.UserRole, filename)
+            item.setToolTip(filename)
+            if not os.path.exists(filename):
+                item.setFlags(item.flags() & ~Qt.ItemIsEnabled)
+            file_list.addItem(item)
+        layout.addWidget(file_list)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Open | QDialogButtonBox.Cancel, parent=dialog)
+        browse_button = buttons.addButton("Browse…", QDialogButtonBox.ActionRole)
+        layout.addWidget(buttons)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        browse_selected = {"value": False}
+        def _on_browse():
+            browse_selected["value"] = True
+            dialog.reject()
+        browse_button.clicked.connect(_on_browse)
+
+        if file_list.count():
+            file_list.setCurrentRow(0)
+        file_list.itemDoubleClicked.connect(lambda _: dialog.accept())
+
+        accepted = dialog.exec() == QDialog.Accepted
+        selected_item = file_list.currentItem()
+        if accepted and selected_item:
+            filename = selected_item.data(Qt.UserRole)
+            if filename and os.path.exists(filename):
+                self.openRecentFile(filename)
+                return
+        if browse_selected["value"]:
+            self.openFile()
 
 
     def openFile(self, filename=None):

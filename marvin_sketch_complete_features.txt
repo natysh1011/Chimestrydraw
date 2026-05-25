@@ -78,6 +78,9 @@ Implemented in ChemCanvas on 2026-05-25 (main window accepts dropped molecule fi
 
 4. Recent Files Quick Access
 
+Status:
+Implemented in ChemCanvas on 2026-05-25 (recent files are persisted across sessions, include saved open timestamps and file-type icons in File → Recent Files, support immediate reopen without a chooser, show missing entries disabled, and are also available from a startup recent-files picker dialog).
+
 What it does:
 Maintains a list of recently opened files for rapid reopening.
 
