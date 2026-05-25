@@ -443,12 +443,27 @@ class Window(QMainWindow, Ui_MainWindow):
         # Convert current canvas to multipage if needed
         self._ensureMultipageInitialized()
         ap = App.paper.pages[App.paper.active_page_index]
+        w_pt = ap.page_w * 72 / Settings.render_dpi
+        h_pt = ap.page_h * 72 / Settings.render_dpi
+        orientation = "Landscape" if w_pt > h_pt else "Portrait"
+        pw, ph = (h_pt, w_pt) if orientation == "Landscape" else (w_pt, h_pt)
+        presets = {
+            "A4": (595, 842),
+            "Letter": (612, 792),
+            "Legal": (612, 1008),
+        }
+        page_size = "Custom"
+        for name, (sw, sh) in presets.items():
+            if abs(pw-sw) < 0.5 and abs(ph-sh) < 0.5:
+                page_size = name
+                break
+        margins_pt = tuple(int(round(v * 72 / Settings.render_dpi)) for v in (ap.margins or (0, 0, 0, 0)))
         dlg = PageSetupDialog(self,
                               page_count=len(App.paper.pages),
-                              page_size="A4",
-                              orientation="Portrait",
-                              margins=ap.margins,
-                              custom_size=(595, 842))
+                              page_size=page_size,
+                              orientation=orientation,
+                              margins=margins_pt,
+                              custom_size=(int(round(w_pt)), int(round(h_pt))))
         if dlg.exec() != QDialog.Accepted:
             return
         count = dlg.getPageCount()
@@ -1005,6 +1020,7 @@ class Window(QMainWindow, Ui_MainWindow):
         painter = QPainter(writer)
         # Hide non-printing view helpers during render
         guides = list(getattr(App.paper, "_page_guides", []))
+        guides += list(getattr(App.paper, "_page_margin_guides", []))
         guides += list(getattr(App.paper, "_canvas_grid_items", []))
         active_guide = getattr(App.paper, "_active_page_guide", None)
         if active_guide:

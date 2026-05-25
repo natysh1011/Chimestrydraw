@@ -55,19 +55,10 @@ Implemented in ChemCanvas on 2026-05-25 (Settings → Document Setup...; presets
 
 ---
 
-1. Margin and Padding Configuration
+6. Margin and Padding Configuration
 
-What it does:
-Defines whitespace borders around the drawing area on each page.
-
-Detailed behavior:
-Margins are set independently for top, bottom, left, and right edges. The printable area shrinks accordingly. Structures placed outside margins trigger warnings or are auto-repositioned based on settings.
-
-Expected behavior:
-No structure content should be clipped by printers when margins are respected. Margin guides should be visible on screen but not printed.
-
-Official basis:
-Margin settings are standard in Marvin's page setup dialog.
+Status:
+Implemented in ChemCanvas on 2026-05-25 (Page Setup preserves and applies per-side margins in points, shows on-canvas non-printing margin guides, and auto-places new structures inside printable bounds).
 
 ---
 

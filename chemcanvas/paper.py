@@ -41,6 +41,7 @@ class Paper(QGraphicsScene):
         self.show_page_boundaries = True
         self._page_backgrounds = []
         self._page_guides = []
+        self._page_margin_guides = []
         self._page_gutter = 40  # default gutter (px)
         self._page_layout_padding = 20
         self.page_layout_mode = "stacked"  # or "grid"
@@ -135,6 +136,12 @@ class Paper(QGraphicsScene):
             except Exception:
                 pass
         self._page_guides = []
+        for g in self._page_margin_guides:
+            try:
+                self.removeItem(g)
+            except Exception:
+                pass
+        self._page_margin_guides = []
         if self._active_page_guide:
             try:
                 self.removeItem(self._active_page_guide)
@@ -180,6 +187,16 @@ class Paper(QGraphicsScene):
                 rect.setFlag(QGraphicsItem.ItemIsSelectable, False)
                 rect.setFlag(QGraphicsItem.ItemIsMovable, False)
                 self._page_guides.append(rect)
+                t, r, b, l = page.margins or (0, 0, 0, 0)
+                if any((t, r, b, l)):
+                    mx1, my1 = x + l, y + t
+                    mx2, my2 = x + page.page_w - r, y + page.page_h - b
+                    if mx2 > mx1 and my2 > my1:
+                        mrect = self.addRect([mx1, my1, mx2, my2], style=PenStyle.dashed, color=(255, 140, 0, 170))
+                        mrect.setZValue(-8.5)
+                        mrect.setFlag(QGraphicsItem.ItemIsSelectable, False)
+                        mrect.setFlag(QGraphicsItem.ItemIsMovable, False)
+                        self._page_margin_guides.append(mrect)
         # Active page highlight
         self._rebuild_active_page_guide()
         self._rebuild_canvas_grid()
@@ -352,23 +369,34 @@ class Paper(QGraphicsScene):
             old_objects = self.objects
             self.objects = page_objects
             try:
-                x, y = self._find_place_for_obj_size_single(w, h, page_w=page.page_w, page_h=page.page_h, origin=(ox, oy))
+                x, y = self._find_place_for_obj_size_single(
+                    w, h, page_w=page.page_w, page_h=page.page_h, origin=(ox, oy), margins=page.margins
+                )
             finally:
                 self.objects = old_objects
             return (x, y)
         return self._find_place_for_obj_size_single(w, h, page_w=self.width(), page_h=self.height(), origin=(0, 0))
 
-    def _find_place_for_obj_size_single(self, w, h, page_w, page_h, origin=(0,0)):
+    def _find_place_for_obj_size_single(self, w, h, page_w, page_h, origin=(0,0), margins=(0, 0, 0, 0)):
         ox, oy = origin
         # It works by first placing rect beside the object in lowest position.
         # If does not fit there, then find the object just above rect
         # and place just beside it. Continue the loop until either
         # fit properly or reaches right edge of page.
-        margin = 1/2.54*Settings.render_dpi # 1 cm
+        t, r, b, l = margins or (0, 0, 0, 0)
+        left_limit = max(10, float(l))
+        right_limit = max(left_limit + 1, float(page_w - r))
+        top_limit = max(10, float(t))
+        bottom_limit = max(top_limit + 1, float(page_h - b))
+        margin = 1/2.54*Settings.render_dpi # default placement margin (1 cm)
         spacing = 0.75/2.54*Settings.render_dpi # 0.75 cm
+        usable_w = right_limit - left_limit
+        usable_h = bottom_limit - top_limit
         if not self.objects:# page empty
-            x = min(margin, (page_w-w)/2)
-            y = min(margin, (page_h-h)/2)
+            x = left_limit + max(0, (usable_w - w)/2)
+            y = top_limit + max(0, (usable_h - h)/2)
+            x = min(max(x, left_limit), max(left_limit, right_limit-w))
+            y = min(max(y, top_limit), max(top_limit, bottom_limit-h))
             return (x,y)
         rects = [o.bounding_box() for o in self.objects]
         lowest_rect = max(rects, key=lambda r : r[3])
@@ -389,12 +417,12 @@ class Paper(QGraphicsScene):
         x = x1
         y = baseline - h/2
         # if can not, then place in next line
-        if x+w>page_w:
-            x = min(margin, (page_w-w)/2)
+        if x+w>right_limit:
+            x = max(left_limit, min(left_limit + margin, right_limit-w))
             y = lowest_rect[3] + spacing
         # adjust pos when object is outside of page
-        x = max(x, 10)
-        y = max(min(y, page_h-h), 10)
+        x = min(max(x, left_limit), max(left_limit, right_limit-w))
+        y = min(max(y, top_limit), max(top_limit, bottom_limit-h))
         return (x,y)
 
     # --------------------- OBJECT MANAGEMENT -----------------------
