@@ -1,0 +1,22 @@
+[INFO] 2026-05-25T10:26:35Z Hook script invoked
+[INFO] 2026-05-25T10:26:35Z PLUGIN_ROOT=/Users/natanielshulkin/.claude/plugins/cache/a5c-ai/babysitter/4.0.152
+[INFO] 2026-05-25T10:26:35Z Hook input received (     420 bytes)
+[INFO] 2026-05-25T10:26:36.177Z handleHookRunStop started
+[INFO] 2026-05-25T10:26:36.178Z Hook input received
+[INFO] 2026-05-25T10:26:36.178Z [session=77f51f5e-3a64-4e16-99cd-90e340b1278b] Session ID: 77f51f5e-3a64-4e16-99cd-90e340b1278b
+[INFO] 2026-05-25T10:26:36.178Z [session=77f51f5e-3a64-4e16-99cd-90e340b1278b] Resolved pluginRoot: /Users/natanielshulkin/.claude/plugins/cache/a5c-ai/babysitter/4.0.152
+[INFO] 2026-05-25T10:26:36.178Z [session=77f51f5e-3a64-4e16-99cd-90e340b1278b] Resolved stateDir: /Users/natanielshulkin/.a5c/state
+[INFO] 2026-05-25T10:26:36.178Z [session=77f51f5e-3a64-4e16-99cd-90e340b1278b] Checking session file at: /Users/natanielshulkin/.a5c/state/77f51f5e-3a64-4e16-99cd-90e340b1278b.md
+[INFO] 2026-05-25T10:26:36.179Z [session=77f51f5e-3a64-4e16-99cd-90e340b1278b] No run associated with session — allowing exit
+[INFO] 2026-05-25T10:26:36Z CLI exit code=0
+[INFO] 2026-05-25T10:57:07Z Hook script invoked
+[INFO] 2026-05-25T10:57:07Z PLUGIN_ROOT=/Users/natanielshulkin/.claude/plugins/cache/a5c-ai/babysitter/4.0.152
+[INFO] 2026-05-25T10:57:07Z Hook input received (     420 bytes)
+[INFO] 2026-05-25T10:57:07.482Z handleHookRunStop started
+[INFO] 2026-05-25T10:57:07.483Z Hook input received
+[INFO] 2026-05-25T10:57:07.483Z [session=aa2d5e9c-629e-4ab8-8c90-905e2007c659] Session ID: aa2d5e9c-629e-4ab8-8c90-905e2007c659
+[INFO] 2026-05-25T10:57:07.483Z [session=aa2d5e9c-629e-4ab8-8c90-905e2007c659] Resolved pluginRoot: /Users/natanielshulkin/.claude/plugins/cache/a5c-ai/babysitter/4.0.152
+[INFO] 2026-05-25T10:57:07.483Z [session=aa2d5e9c-629e-4ab8-8c90-905e2007c659] Resolved stateDir: /Users/natanielshulkin/.a5c/state
+[INFO] 2026-05-25T10:57:07.483Z [session=aa2d5e9c-629e-4ab8-8c90-905e2007c659] Checking session file at: /Users/natanielshulkin/.a5c/state/aa2d5e9c-629e-4ab8-8c90-905e2007c659.md
+[INFO] 2026-05-25T10:57:07.484Z [session=aa2d5e9c-629e-4ab8-8c90-905e2007c659] No run associated with session — allowing exit
+[INFO] 2026-05-25T10:57:07Z CLI exit code=0

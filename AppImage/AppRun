@@ -1,0 +1,34 @@
+#!/bin/bash
+set -e
+
+# be verbose if $DEBUG=1 is set
+if [ ! -z "$DEBUG" ] ; then
+  env
+  set -x
+fi
+
+BIN="usr/lib/chemcanvas/chemcanvas"
+
+
+if [ -z $APPDIR ] ; then
+  APPDIR=$(readlink -f "$(dirname "$0")")
+fi
+
+# export environment variables
+export PATH="${APPDIR}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${APPDIR}/usr/lib:${LD_LIBRARY_PATH}"
+export XDG_DATA_DIRS="${APPDIR}/usr/share/:${XDG_DATA_DIRS}"
+
+# Python
+#export PYTHONPATH="${APPDIR}/usr/lib/python3:${PYTHONPATH}"
+#export PYTHONDONTWRITEBYTECODE=1
+
+# this sets QT_STYLE_OVERRIDE=Fusion if not set
+export QT_STYLE_OVERRIDE=${QT_STYLE_OVERRIDE:-Fusion}
+
+
+
+cd "$APPDIR"
+
+# call the executable
+$BIN "$@"

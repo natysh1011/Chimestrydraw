@@ -1,0 +1,35 @@
+id: io.github.ksharindam.chemcanvas
+runtime: org.kde.Platform
+runtime-version: '5.15-24.08'
+sdk: org.kde.Sdk
+base: com.riverbankcomputing.PyQt.BaseApp
+base-version: '5.15-24.08'
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+build-options:
+  env:
+    - BASEAPP_REMOVE_WEBENGINE=1
+command: chemcanvas
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --socket=cups
+  - --device=dri
+  - --share=network
+  - --share=ipc
+  - --filesystem=home
+  - --filesystem=xdg-data
+
+modules:
+  - name: chemcanvas
+    buildsystem: simple
+    build-commands:
+      - pip3 install --no-build-isolation --prefix=/app .
+      - install -Dm644 ./data/chemcanvas.svg /app/share/icons/hicolor/scalable/apps/io.github.ksharindam.chemcanvas.svg
+      - desktop-file-edit --set-icon=io.github.ksharindam.chemcanvas ./data/chemcanvas.desktop
+      - install -Dm644 ./data/chemcanvas.desktop /app/share/applications/io.github.ksharindam.chemcanvas.desktop
+      - install -Dm644 ./data/io.github.ksharindam.chemcanvas.metainfo.xml /app/share/metainfo/
+      - install -Dm644 ./data/chemcanvas-mime.xml /app/share/mime/packages/io.github.ksharindam.chemcanvas-mime.xml
+    sources:
+      - type: dir
+        path: .
