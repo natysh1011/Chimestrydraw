@@ -370,7 +370,7 @@ class Ccdx(FileFormat):
         root.setAttribute("version", "1.1")
         self.coord_multiplier = 72/Settings.render_dpi # px to point converter
         w, h = doc.page_size()
-        if w!=595 and h!=842:# do not save default page size
+        if w!=595 or h!=842:# do not save default page size
             root.setAttribute("page_size", ",".join(map(float_to_str, (w,h))))
         try:
             # write objects
@@ -571,5 +571,4 @@ class Ccdx(FileFormat):
 
     def createEllipseNode(self, ellipse, parent):
         self.createShapeNode(ellipse, parent, "ellipse")
-
 
