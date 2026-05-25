@@ -73,6 +73,11 @@ Margin settings are standard in Marvin's page setup dialog.
 
 2. Open Existing File
 
+Status:
+Implemented in ChemCanvas on 2026-05-25 (File → Open supports all registered readable formats, updates current window title, and now updates persistent Recent Files list).
+
+---
+
 What it does:
 Loads a previously saved molecule file from disk into the application.
 
@@ -89,6 +94,11 @@ Marvin supports opening all major chemical file formats as documented in the Fil
 
 3. Drag-and-Drop File Opening
 
+Status:
+Implemented in ChemCanvas on 2026-05-25 (window accepts dropped local files; default opens first file in current window and additional files in new windows; Ctrl+drop inserts files into current document).
+
+---
+
 What it does:
 Allows users to open files by dragging them from the OS file manager onto the canvas.
 
@@ -104,6 +114,11 @@ Marvin Desktop and Marvin JS both support drag-and-drop file loading per the int
 ---
 
 4. Recent Files Quick Access
+
+Status:
+Implemented in ChemCanvas on 2026-05-25 (persistent File → Recent Files menu with path validation, quick reopen, and clear list action).
+
+---
 
 What it does:
 Maintains a list of recently opened files for rapid reopening.

@@ -41,6 +41,7 @@ from page_setup_dialog import PageSetupDialog
 from page_grid_dialog import PageGridDialog
 from reagent_label_tool import LabelPrintDialog
 from common import str_to_tuple
+from recent_files import push_recent_file, normalize_recent_files
 
 
 DEBUG = False
@@ -119,6 +120,7 @@ class Window(QMainWindow, Ui_MainWindow):
         self.graphicsView.scale(Settings.basic_scale, Settings.basic_scale)
         self.paper = Paper(self.graphicsView)
         App.paper = self.paper
+        self.setAcceptDrops(True)
         page_w, page_h = 595/72*Settings.render_dpi, 842/72*Settings.render_dpi
         self.paper.setSize(page_w, page_h, reset_initial_undo=True)
         App.paper.show_carbon = show_carbon
@@ -147,6 +149,11 @@ class Window(QMainWindow, Ui_MainWindow):
         self.actionInsertFile.triggered.connect(self.insertFile)
         # Place right after Open in File menu
         self.menuFile.insertAction(self.actionSave, self.actionInsertFile)
+        self.menuRecentFiles = QMenu("Recent Files", self.menuFile)
+        self.menuFile.insertMenu(self.actionSave, self.menuRecentFiles)
+        self.recent_files = []
+        self.loadRecentFiles()
+        self.updateRecentFilesMenu()
 
         # Multipage controls
         self.actionPageSetup = QAction("Page Setup…", self)
@@ -573,6 +580,60 @@ class Window(QMainWindow, Ui_MainWindow):
         except Exception as e:
             QMessageBox.critical(self, "ChemCanvas", f"Failed to open new window:\n{e}")
 
+    def openFileInNewWindow(self, filename):
+        try:
+            argv, cwd, env = build_new_window_process_config()
+            subprocess.Popen(argv + [filename], cwd=cwd, env=env)
+            return True
+        except Exception as e:
+            QMessageBox.critical(self, "ChemCanvas", f"Failed to open file in new window:\n{e}")
+            return False
+
+    def loadRecentFiles(self):
+        value = self.settings.value("RecentFiles", [])
+        if isinstance(value, str):
+            recent_paths = [value] if value else []
+        elif value is None:
+            recent_paths = []
+        else:
+            recent_paths = list(value)
+        self.recent_files = normalize_recent_files(recent_paths)
+        self.settings.setValue("RecentFiles", self.recent_files)
+
+    def updateRecentFilesMenu(self):
+        self.recent_files = normalize_recent_files(self.recent_files)
+        self.settings.setValue("RecentFiles", self.recent_files)
+        self.menuRecentFiles.clear()
+        if not self.recent_files:
+            action = self.menuRecentFiles.addAction("(No Recent Files)")
+            action.setEnabled(False)
+            return
+        for path in self.recent_files:
+            action = self.menuRecentFiles.addAction(os.path.basename(path))
+            action.setData(path)
+            action.setToolTip(path)
+            action.triggered.connect(self.onRecentFileTriggered)
+        self.menuRecentFiles.addSeparator()
+        clear_action = self.menuRecentFiles.addAction("Clear Recent Files")
+        clear_action.triggered.connect(self.clearRecentFiles)
+
+    def addRecentFile(self, filename):
+        self.recent_files = push_recent_file(self.recent_files, filename)
+        self.updateRecentFilesMenu()
+
+    def onRecentFileTriggered(self):
+        action = self.sender()
+        filename = action.data() if action else ""
+        if not filename:
+            return
+        if not self.openFile(filename):
+            self.recent_files = [path for path in self.recent_files if path != filename]
+            self.updateRecentFilesMenu()
+
+    def clearRecentFiles(self):
+        self.recent_files = []
+        self.updateRecentFilesMenu()
+
     def onZoomSliderMoved(self, index):
         self.graphicsView.resetTransform()
         scale = self.zoom_levels[index] / 100
@@ -848,6 +909,7 @@ class Window(QMainWindow, Ui_MainWindow):
             self.selected_filter = ""# reset
             App.paper.undo_manager.mark_saved_to_disk()
         self.enableSaveButton(False)
+        self.addRecentFile(filename)
         return True
 
     def insertFile(self, filename=None):
@@ -1219,6 +1281,36 @@ class Window(QMainWindow, Ui_MainWindow):
         if self.filename:
             self.settings.setValue("WorkingDir", os.path.dirname(self.filename))
         QMainWindow.closeEvent(self, ev)
+
+    def dragEnterEvent(self, ev):
+        urls = ev.mimeData().urls()
+        if urls and any(url.isLocalFile() and os.path.exists(url.toLocalFile()) for url in urls):
+            ev.acceptProposedAction()
+        else:
+            ev.ignore()
+
+    def dropEvent(self, ev):
+        urls = ev.mimeData().urls()
+        files = [os.path.abspath(url.toLocalFile()) for url in urls if url.isLocalFile()]
+        files = normalize_recent_files(files, max_items=1000)
+        if not files:
+            ev.ignore()
+            return
+        ev.acceptProposedAction()
+        ctrl_pressed = bool(ev.keyboardModifiers() & Qt.ControlModifier)
+        if ctrl_pressed:
+            success = [f for f in files if self.insertFile(f)]
+            if success:
+                self.showStatus("Inserted %d file(s)" % len(success))
+            return
+        opened = []
+        if self.openFile(files[0]):
+            opened.append(files[0])
+        for filename in files[1:]:
+            if self.openFileInNewWindow(filename):
+                opened.append(filename)
+        if opened:
+            self.showStatus("Opened %d file(s)" % len(opened))
 
 
 
