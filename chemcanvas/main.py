@@ -8,6 +8,7 @@ import io
 import platform
 import re
 import subprocess
+from functools import partial
 from datetime import datetime
 import traceback
 
@@ -50,6 +51,10 @@ def debug(*args):
 
 
 def build_new_window_process_config(sys_executable=None, existing_env=None, open_filename=None):
+    """Return argv/cwd/env for launching a separate ChemCanvas process.
+
+    When open_filename is provided, the new process opens that file on startup.
+    """
     sys_executable = sys_executable or sys.executable
     package_root = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(package_root)
@@ -70,7 +75,6 @@ class Window(QMainWindow, Ui_MainWindow):
         QMainWindow.__init__(self)
         self.setupUi(self)
         App.window = self
-        self.setAcceptDrops(True)
 
         self.setWindowTitle("ChemCanvas - " + __version__)
         self.setWindowIcon(QIcon(":/icons/chemcanvas.png"))
@@ -113,10 +117,6 @@ class Window(QMainWindow, Ui_MainWindow):
 
         # setup graphics view
         self.graphicsView.setMouseTracking(True)
-        # Handle drag/drop at window level so dropping anywhere (including canvas area)
-        # uses a single file-open path and consistent multi-file behavior.
-        self.graphicsView.setAcceptDrops(False)
-        self.graphicsView.viewport().setAcceptDrops(False)
         self.graphicsView.setBackgroundBrush(Qt.gray)
         # this improves drawing speed
         self.graphicsView.setViewportUpdateMode(QGraphicsView.BoundingRectViewportUpdate)
@@ -346,6 +346,7 @@ class Window(QMainWindow, Ui_MainWindow):
         templatesBtn.clicked.connect(self.showTemplateChooserDialog)
 
         # other things to initialize
+        self._configureDragAndDrop()
         if not curr_dir or not os.path.isdir(curr_dir):
             curr_dir = QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation)
         QDir.setCurrent(curr_dir)
@@ -838,7 +839,14 @@ class Window(QMainWindow, Ui_MainWindow):
 
     # ------------------------ FILE -------------------------
 
-    def _droppedFiles(self, event):
+    def _configureDragAndDrop(self):
+        # Handle drag/drop at window level so dropping anywhere (including canvas area)
+        # uses a single file-open path and consistent multi-file behavior.
+        self.setAcceptDrops(True)
+        self.graphicsView.setAcceptDrops(False)
+        self.graphicsView.viewport().setAcceptDrops(False)
+
+    def _get_dropped_files(self, event):
         mime = event.mimeData()
         if not mime or not mime.hasUrls():
             return []
@@ -855,28 +863,29 @@ class Window(QMainWindow, Ui_MainWindow):
         return files
 
     def dragEnterEvent(self, event):
-        if self._droppedFiles(event):
+        if self._get_dropped_files(event):
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event):
-        if self._droppedFiles(event):
+        if self._get_dropped_files(event):
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dropEvent(self, event):
-        files = self._droppedFiles(event)
+        files = self._get_dropped_files(event)
         if not files:
             event.ignore()
             return
         insert_mode = bool(event.keyboardModifiers() & (Qt.ControlModifier | Qt.ShiftModifier))
         if insert_mode:
-            opened = False
+            any_opened = False
             for filename in files:
-                opened = self.insertFile(filename) or opened
-            if not opened:
+                if self.insertFile(filename):
+                    any_opened = True
+            if not any_opened:
                 event.ignore()
                 return
         else:
@@ -936,7 +945,7 @@ class Window(QMainWindow, Ui_MainWindow):
             action = self.recentFilesMenu.addAction(os.path.basename(filename))
             action.setToolTip(filename)
             action.setStatusTip(filename)
-            action.triggered.connect(lambda checked=False, path=filename: self.openRecentFile(path))
+            action.triggered.connect(partial(self.openRecentFile, filename))
             if not os.path.exists(filename):
                 action.setEnabled(False)
         self.recentFilesMenu.addSeparator()
