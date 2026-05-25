@@ -113,6 +113,8 @@ class Window(QMainWindow, Ui_MainWindow):
 
         # setup graphics view
         self.graphicsView.setMouseTracking(True)
+        # Handle drag/drop at window level so dropping anywhere (including canvas area)
+        # uses a single file-open path and consistent multi-file behavior.
         self.graphicsView.setAcceptDrops(False)
         self.graphicsView.viewport().setAcceptDrops(False)
         self.graphicsView.setBackgroundBrush(Qt.gray)
@@ -903,6 +905,10 @@ class Window(QMainWindow, Ui_MainWindow):
     def setRecentFiles(self, paths):
         self.settings.setValue("RecentFiles", paths[:MAX_RECENT_FILES])
 
+    def clearRecentFiles(self):
+        self.setRecentFiles([])
+        self.refreshRecentFilesMenu()
+
     def addRecentFile(self, filename):
         filename = os.path.abspath(filename)
         recents = [path for path in self.getRecentFiles() if path != filename]
@@ -935,7 +941,7 @@ class Window(QMainWindow, Ui_MainWindow):
                 action.setEnabled(False)
         self.recentFilesMenu.addSeparator()
         clear_action = self.recentFilesMenu.addAction("Clear Recent Files")
-        clear_action.triggered.connect(lambda: (self.setRecentFiles([]), self.refreshRecentFilesMenu()))
+        clear_action.triggered.connect(self.clearRecentFiles)
 
 
     def openFile(self, filename=None):
@@ -972,8 +978,8 @@ class Window(QMainWindow, Ui_MainWindow):
         App.paper.save_state_to_undo_stack("Open File")
         self.filename = filename
         self.selected_filter = ""# reset
-        App.paper.undo_manager.mark_saved_to_disk()
         self.addRecentFile(filename)
+        App.paper.undo_manager.mark_saved_to_disk()
         self.enableSaveButton(False)
         return True
 
