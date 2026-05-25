@@ -15,6 +15,8 @@ from PyQt5.QtGui import (QColor, QPen, QBrush, QPolygonF, QPainterPath,
         QFontMetricsF, QFont, QImage, QPainter, QTransform)
 
 
+MARGIN_GUIDE_COLOR = (255, 140, 0, 170)
+
 
 
 # Note :
@@ -187,12 +189,12 @@ class Paper(QGraphicsScene):
                 rect.setFlag(QGraphicsItem.ItemIsSelectable, False)
                 rect.setFlag(QGraphicsItem.ItemIsMovable, False)
                 self._page_guides.append(rect)
-                t, r, b, l = page.margins or (0, 0, 0, 0)
-                if any((t, r, b, l)):
-                    mx1, my1 = x + l, y + t
-                    mx2, my2 = x + page.page_w - r, y + page.page_h - b
+                margin_top, margin_right, margin_bottom, margin_left = page.margins or (0, 0, 0, 0)
+                if any((margin_top, margin_right, margin_bottom, margin_left)):
+                    mx1, my1 = x + margin_left, y + margin_top
+                    mx2, my2 = x + page.page_w - margin_right, y + page.page_h - margin_bottom
                     if mx2 > mx1 and my2 > my1:
-                        mrect = self.addRect([mx1, my1, mx2, my2], style=PenStyle.dashed, color=(255, 140, 0, 170))
+                        mrect = self.addRect([mx1, my1, mx2, my2], style=PenStyle.dashed, color=MARGIN_GUIDE_COLOR)
                         mrect.setZValue(-8.5)
                         mrect.setFlag(QGraphicsItem.ItemIsSelectable, False)
                         mrect.setFlag(QGraphicsItem.ItemIsMovable, False)
@@ -383,11 +385,11 @@ class Paper(QGraphicsScene):
         # If does not fit there, then find the object just above rect
         # and place just beside it. Continue the loop until either
         # fit properly or reaches right edge of page.
-        t, r, b, l = margins or (0, 0, 0, 0)
-        left_limit = max(10, float(l))
-        right_limit = max(left_limit + 1, float(page_w - r))
-        top_limit = max(10, float(t))
-        bottom_limit = max(top_limit + 1, float(page_h - b))
+        margin_top, margin_right, margin_bottom, margin_left = margins or (0, 0, 0, 0)
+        left_limit = max(10, float(margin_left))
+        right_limit = max(left_limit + 1, float(page_w - margin_right))
+        top_limit = max(10, float(margin_top))
+        bottom_limit = max(top_limit + 1, float(page_h - margin_bottom))
         margin = 1/2.54*Settings.render_dpi # default placement margin (1 cm)
         spacing = 0.75/2.54*Settings.render_dpi # 0.75 cm
         usable_w = right_limit - left_limit
