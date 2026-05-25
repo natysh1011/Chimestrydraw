@@ -49,7 +49,7 @@ from common import str_to_tuple
 DEBUG = False
 MAX_RECENT_FILES = 12
 MAX_STARTUP_RECENT_FILES = 8
-OSR_IMAGE_FILTER = "Image Files (*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.gif)"
+RASTER_IMAGE_FILTER = "Image Files (*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.gif)"
 def debug(*args):
     if DEBUG: print(*args)
 
@@ -1156,7 +1156,8 @@ class Window(QMainWindow, Ui_MainWindow):
                 check=False,
             )
         except FileNotFoundError:
-            return None, "", "OSR engine not found. Install `osra` to enable image-to-structure import."
+            return None, "", ("OSR engine not found. Install osra (for example via your package manager) "
+                              "to enable image-to-structure import.")
         except Exception as e:
             return None, "", str(e)
 
@@ -1165,14 +1166,17 @@ class Window(QMainWindow, Ui_MainWindow):
         if result.returncode != 0 and not stdout:
             return None, "", stderr or "OSR engine failed to recognize structure."
 
+        smiles_reader = Smiles()
         for line in stdout.splitlines():
             text = line.strip()
             if not text or text.startswith("#"):
                 continue
-            candidate = text.split()[0]
+            parts = text.split()
+            if not parts:
+                continue
+            candidate = parts[0]
             try:
-                reader = Smiles()
-                doc = reader.read_string(candidate)
+                doc = smiles_reader.read_string(candidate)
                 if doc and doc.objects:
                     return doc, candidate, stderr
             except Exception:
@@ -1189,7 +1193,7 @@ class Window(QMainWindow, Ui_MainWindow):
                 self,
                 "Import Image via OSR",
                 self.filename,
-                f"{OSR_IMAGE_FILTER};;All Files (*)",
+                f"{RASTER_IMAGE_FILTER};;All Files (*)",
             )
             if not filename:
                 return False
