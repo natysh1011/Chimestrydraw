@@ -69,19 +69,10 @@ Implemented in ChemCanvas on 2026-05-25 (File → Open loads supported formats w
 
 ---
 
-3. Drag-and-Drop File Opening
+8. Drag-and-Drop File Opening
 
-What it does:
-Allows users to open files by dragging them from the OS file manager onto the canvas.
-
-Detailed behavior:
-The application registers as a drag-and-drop target. When files are dropped, it detects the format from extension or content headers, parses the file, and either replaces the current document or inserts the content based on modifier keys.
-
-Expected behavior:
-Drag-and-drop should work for all supported formats. The cursor should change to indicate valid drop targets. Multiple files dropped simultaneously should open in separate windows or pages.
-
-Official basis:
-Marvin Desktop and Marvin JS both support drag-and-drop file loading per the integration documentation.
+Status:
+Implemented in ChemCanvas on 2026-05-25 (main window accepts dropped molecule files, validates supported formats, opens dropped file in current window by default, supports modifier-key insert mode, and opens additional dropped files in new windows).
 
 ---
 

@@ -49,7 +49,7 @@ def debug(*args):
     if DEBUG: print(*args)
 
 
-def build_new_window_process_config(sys_executable=None, existing_env=None):
+def build_new_window_process_config(sys_executable=None, existing_env=None, open_filename=None):
     sys_executable = sys_executable or sys.executable
     package_root = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.dirname(package_root)
@@ -57,7 +57,10 @@ def build_new_window_process_config(sys_executable=None, existing_env=None):
     existing_pythonpath = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = (project_root + os.pathsep + existing_pythonpath
                          if existing_pythonpath else project_root)
-    return [sys_executable, "-m", "chemcanvas.main"], project_root, env
+    argv = [sys_executable, "-m", "chemcanvas.main"]
+    if open_filename:
+        argv.append(os.path.abspath(open_filename))
+    return argv, project_root, env
 
 
 
@@ -67,6 +70,7 @@ class Window(QMainWindow, Ui_MainWindow):
         QMainWindow.__init__(self)
         self.setupUi(self)
         App.window = self
+        self.setAcceptDrops(True)
 
         self.setWindowTitle("ChemCanvas - " + __version__)
         self.setWindowIcon(QIcon(":/icons/chemcanvas.png"))
@@ -109,6 +113,8 @@ class Window(QMainWindow, Ui_MainWindow):
 
         # setup graphics view
         self.graphicsView.setMouseTracking(True)
+        self.graphicsView.setAcceptDrops(False)
+        self.graphicsView.viewport().setAcceptDrops(False)
         self.graphicsView.setBackgroundBrush(Qt.gray)
         # this improves drawing speed
         self.graphicsView.setViewportUpdateMode(QGraphicsView.BoundingRectViewportUpdate)
@@ -592,6 +598,15 @@ class Window(QMainWindow, Ui_MainWindow):
         except Exception as e:
             QMessageBox.critical(self, "ChemCanvas", f"Failed to open new window:\n{e}")
 
+    def openFileInNewWindow(self, filename):
+        try:
+            argv, cwd, env = build_new_window_process_config(open_filename=filename)
+            subprocess.Popen(argv, cwd=cwd, env=env)
+            return True
+        except Exception as e:
+            self.showException(e)
+            return False
+
     def onZoomSliderMoved(self, index):
         self.graphicsView.resetTransform()
         scale = self.zoom_levels[index] / 100
@@ -820,6 +835,56 @@ class Window(QMainWindow, Ui_MainWindow):
 
 
     # ------------------------ FILE -------------------------
+
+    def _droppedFiles(self, event):
+        mime = event.mimeData()
+        if not mime or not mime.hasUrls():
+            return []
+        files = []
+        for url in mime.urls():
+            if not url.isLocalFile():
+                continue
+            path = os.path.abspath(url.toLocalFile())
+            if not os.path.isfile(path):
+                continue
+            if not create_file_reader(path):
+                continue
+            files.append(path)
+        return files
+
+    def dragEnterEvent(self, event):
+        if self._droppedFiles(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        if self._droppedFiles(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        files = self._droppedFiles(event)
+        if not files:
+            event.ignore()
+            return
+        insert_mode = bool(event.keyboardModifiers() & (Qt.ControlModifier | Qt.ShiftModifier))
+        if insert_mode:
+            opened = False
+            for filename in files:
+                opened = self.insertFile(filename) or opened
+            if not opened:
+                event.ignore()
+                return
+        else:
+            opened = self.openFile(files[0])
+            if not opened:
+                event.ignore()
+                return
+            for filename in files[1:]:
+                self.openFileInNewWindow(filename)
+        event.acceptProposedAction()
 
     def enableSaveButton(self, enable):
         self.actionSave.setEnabled(enable)
