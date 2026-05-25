@@ -97,6 +97,9 @@ Recent files functionality is standard in Marvin Desktop applications.
 
 5. Import Image via Optical Structure Recognition (OSR)
 
+Status:
+Implemented in ChemCanvas on 2026-05-25 (adds File → Import Image (OSR)… action, accepts raster image formats, invokes OSRA command-line recognition when available, parses recognized SMILES into editable molecule objects on the canvas, and reports recognition/engine errors to the user).
+
 What it does:
 Converts raster images of chemical structures (scans, screenshots, PDFs) into editable molecular objects.
 

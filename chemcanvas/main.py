@@ -49,6 +49,7 @@ from common import str_to_tuple
 DEBUG = False
 MAX_RECENT_FILES = 12
 MAX_STARTUP_RECENT_FILES = 8
+OSR_IMAGE_FILTER = "Image Files (*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.gif)"
 def debug(*args):
     if DEBUG: print(*args)
 
@@ -159,6 +160,9 @@ class Window(QMainWindow, Ui_MainWindow):
         self.actionInsertFile.triggered.connect(self.insertFile)
         # Place right after Open in File menu
         self.menuFile.insertAction(self.actionSave, self.actionInsertFile)
+        self.actionImportImageOSR = QAction("Import Image (OSR)…", self)
+        self.actionImportImageOSR.triggered.connect(self.importImageViaOSR)
+        self.menuFile.insertAction(self.actionSave, self.actionImportImageOSR)
         self.recentFilesMenu = QMenu("Recent Files", self.menuFile)
         self.menuFile.insertMenu(self.actionInsertFile, self.recentFilesMenu)
         self.refreshRecentFilesMenu()
@@ -1138,6 +1142,75 @@ class Window(QMainWindow, Ui_MainWindow):
             App.paper.undo_manager.mark_saved_to_disk()
             self.enableSaveButton(False)
         return True
+
+    def _runOsrOnImage(self, filename):
+        filename = os.path.abspath(filename)
+        command = ["osra", "-f", "smi", filename]
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except FileNotFoundError:
+            return None, "", "OSR engine not found. Install `osra` to enable image-to-structure import."
+        except Exception as e:
+            return None, "", str(e)
+
+        stderr = (result.stderr or "").strip()
+        stdout = (result.stdout or "").strip()
+        if result.returncode != 0 and not stdout:
+            return None, "", stderr or "OSR engine failed to recognize structure."
+
+        for line in stdout.splitlines():
+            text = line.strip()
+            if not text or text.startswith("#"):
+                continue
+            candidate = text.split()[0]
+            try:
+                reader = Smiles()
+                doc = reader.read_string(candidate)
+                if doc and doc.objects:
+                    return doc, candidate, stderr
+            except Exception:
+                pass
+        return None, "", stderr or "No recognizable structure was found in the selected image."
+
+    def importImageViaOSR(self, filename=None):
+        if filename:
+            filename = os.path.abspath(filename)
+            if not os.path.exists(filename):
+                return False
+        else:
+            filename, _ = QFileDialog.getOpenFileName(
+                self,
+                "Import Image via OSR",
+                self.filename,
+                f"{OSR_IMAGE_FILTER};;All Files (*)",
+            )
+            if not filename:
+                return False
+
+        try:
+            doc, smiles_text, warning = self._runOsrOnImage(filename)
+            if not doc or not doc.objects:
+                self.showError("Import Image via OSR", warning or "Failed to recognize structure from image.")
+                return False
+            mol = doc.objects[0]
+            App.paper.addObject(mol)
+            draw_recursively(mol)
+            App.paper.save_state_to_undo_stack("Import Image (OSR)")
+            if warning:
+                self.showStatus(warning)
+            else:
+                self.showStatus(f"Imported image as structure via OSR: {smiles_text}")
+            return True
+        except Exception as e:
+            self.showException(e)
+            return False
 
 
     def saveFile(self, filename):
