@@ -933,7 +933,7 @@ class Window(QMainWindow, Ui_MainWindow):
             action.setEnabled(False)
             return
         for filename in recents:
-            action = self.recentFilesMenu.addAction(os.path.basename(filename) or filename)
+            action = self.recentFilesMenu.addAction(os.path.basename(filename))
             action.setToolTip(filename)
             action.setStatusTip(filename)
             action.triggered.connect(lambda checked=False, path=filename: self.openRecentFile(path))
