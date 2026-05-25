@@ -990,8 +990,7 @@ class Window(QMainWindow, Ui_MainWindow):
             opened_at = entry.get("opened_at", "")
             if opened_at:
                 title = f"{title}    {opened_at}"
-            action = self.recentFilesMenu.addAction(os.path.basename(filename))
-            action.setText(title)
+            action = self.recentFilesMenu.addAction(title)
             action.setToolTip(filename)
             action.setStatusTip(filename)
             action.setIcon(self.fileIconProvider.icon(QFileInfo(filename)))
